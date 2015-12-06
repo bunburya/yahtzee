@@ -105,17 +105,38 @@ class Scorecard:
     LOWER_SECTION = ['3x', '4x', 'fh', 'ss', 'ls', 'y', 'c']
     CATEGORIES = UPPER_SECTION + LOWER_SECTION
     
+    
+
     def __init__(self):
         self.scores = {c: NoScore for c in self.CATEGORIES}
+        self.SCORE_FUNCS = {
+            'ones': lambda s, d: self.upper(1, d),
+            'twos': lambda s, d: self.upper(2, d),
+            'threes': lambda s, d: self.upper(3, d),
+            'fours': lambda s, d: self.upper(4, d),
+            'fives': lambda s, d: self.upper(5, d),
+            'sixes': lambda s, d: self.upper(6, d),
+            '3x': self.three_kind,
+            '4x': self.four_kind,
+            'fh': self.full_house,
+            'ss': self.short_straight,
+            'ls': self.long_straight,
+            'y': self.yahtzee,
+            'c': self.chance
+        }
             
     def handle_score(self, score, cat, preview=False):
         if not preview:
             if self.scores[cat] is not NoScore:
                 raise AlreadyScoredError('Player has already entered score for this category.')
             self.scores[cat] = score
-            raise TurnOver
-        else:
-            return score
+        return score
+
+    def score(self, cat, dice, preview=False):
+        try:
+            return self.SCORE_FUNCS[cat](dice, preview)
+        except AlreadyScoredError:
+            pass
     
     def upper(self, n, dice, preview=False):
         """This function places scores in the upper section of the
@@ -155,7 +176,7 @@ class Scorecard:
         values = sorted({d.value for d in dice})
         for k, g in groupby(enumerate(values), lambda x:x[0]-x[1]):
             streak = list(map(itemgetter(1), g))
-            print(streak)
+            #print(streak)
             if len(streak) >= n:
                 score = 30 if n == 4 else 40
                 break
@@ -198,14 +219,29 @@ class Scorecard:
     
 class Game:
     
-    def __init__(self, *players):
-        self.players = list(players)
+    def __init__(self, players):
+        self.players = players
+        self.dice = Dice()
+        self.scores = {p: Scorecard() for p in players}
+        self._player_i = 0 # so current player is first in list
     
+    @property
+    def current_player(self):
+        return self.players[self._player_i]
+
+    def next_player(self):
+        if self._player_i >= len(self.players):
+            self._player_i += 1
+        else:
+            self._player_i = 0
+
     def gameloop(self):
         try:
             while True:
-                for p in self.players:
+                try:
                     self.turnloop(p)
+                except TurnOver:
+                    self.next_player()
         except GameOver:
             self.game_over()
     

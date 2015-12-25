@@ -98,6 +98,13 @@ class Dice:
     def total(self):
         return sum(d.value for d in self.dice)
 
+class Player:
+
+    def __init__(self, name):
+        self.name = name
+        self.rolled = False
+        self.scorecard = Scorecard()
+
 class Scorecard:
     """A score card for a single player."""
     
@@ -105,17 +112,15 @@ class Scorecard:
     LOWER_SECTION = ['3x', '4x', 'fh', 'ss', 'ls', 'y', 'c']
     CATEGORIES = UPPER_SECTION + LOWER_SECTION
     
-    
-
     def __init__(self):
         self.scores = {c: NoScore for c in self.CATEGORIES}
         self.SCORE_FUNCS = {
-            'ones': lambda s, d: self.upper(1, d),
-            'twos': lambda s, d: self.upper(2, d),
-            'threes': lambda s, d: self.upper(3, d),
-            'fours': lambda s, d: self.upper(4, d),
-            'fives': lambda s, d: self.upper(5, d),
-            'sixes': lambda s, d: self.upper(6, d),
+            'ones': lambda d, p: self.upper(1, d),
+            'twos': lambda d, p: self.upper(2, d),
+            'threes': lambda d, p: self.upper(3, d),
+            'fours': lambda d, p: self.upper(4, d),
+            'fives': lambda d, p: self.upper(5, d),
+            'sixes': lambda d, p: self.upper(6, d),
             '3x': self.three_kind,
             '4x': self.four_kind,
             'fh': self.full_house,
@@ -141,10 +146,12 @@ class Scorecard:
     def upper(self, n, dice, preview=False):
         """This function places scores in the upper section of the
         scorecard.  `n` is the number (1-6) that you want to score."""
+        print(n, dice, preview)
         if 0 >= n >= 7:
             raise ValueError('n must be number between 1 and 6.')
         cat = self.UPPER_SECTION[n-1]
-        score = len([d for d in dice if d.value == n]) * n
+        print(dice)
+        score = len([d.value for d in dice if d.value == n]) * n
         return self.handle_score(score, cat, preview)
     
     def _kind(self, n, cat, dice, preview=False):
@@ -220,7 +227,7 @@ class Scorecard:
 class Game:
     
     def __init__(self, players):
-        self.players = players
+        self.players = [Player(p) for p in players]
         self.dice = Dice()
         self.scores = {p: Scorecard() for p in players}
         self._player_i = 0 # so current player is first in list
@@ -230,7 +237,7 @@ class Game:
         return self.players[self._player_i]
 
     def next_player(self):
-        if self._player_i >= len(self.players):
+        if self._player_i < (len(self.players)-1):
             self._player_i += 1
         else:
             self._player_i = 0

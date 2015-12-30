@@ -41,7 +41,8 @@ NoScore = NoScoreType()
 
 class Die:
     
-    def __init__(self, value=None):
+    def __init__(self, dice, value=None):
+        self.dice = dice
         self.is_held = False
         self.value = value or random.randint(1, 6)
     
@@ -55,9 +56,10 @@ class Dice:
     
     def __init__(self, values=None):
         if values is not None:
-            self.dice = [Die(i) for i in values]
+            self.dice = [Die(self, i) for i in values]
         else:
-            self.dice = [Die() for _ in range(5)]
+            self.dice = [Die(self, i) for i in range(1, 6)]
+        self.rolled = 0
     
     def __iter__(self):
         self._i = 0
@@ -79,6 +81,7 @@ class Dice:
                 # If dice is marked as held, don't roll it, but un-mark
                 # it for future rolls
                 d.is_held = False
+        self.rolled += 1
     
     def hold(self, indices):
         """Takes a sequence of indices, and marks the die at each index
@@ -183,7 +186,6 @@ class Scorecard:
         values = sorted({d.value for d in dice})
         for k, g in groupby(enumerate(values), lambda x:x[0]-x[1]):
             streak = list(map(itemgetter(1), g))
-            #print(streak)
             if len(streak) >= n:
                 score = 30 if n == 4 else 40
                 break
@@ -241,6 +243,7 @@ class Game:
             self._player_i += 1
         else:
             self._player_i = 0
+        self.dice.rolled = 0
 
     def gameloop(self):
         try:

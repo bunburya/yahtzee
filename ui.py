@@ -5,7 +5,8 @@ from os.path import abspath, dirname, join
 from sys import argv
 import tkinter
 from tkinter import N, W, E, S
-from yahtzee import Game, TurnOver
+
+root = tkinter.Tk()
 
 # These are taken from yahtzee.py, TODO: pull them from a central source
 # se we're not replicating code.
@@ -101,91 +102,64 @@ class PlayerColumn(tkinter.Frame):
     # that will contain a player name and that player's score for each
     # category.
     
-    def __init__(self, parent, player, ui, **options):
+    def __init__(self, parent, presenter, pname, ui, **options):
         self.parent = parent
-        self.player = player
-        self.scorecard = self.player.scorecard
+        self.presenter = presenter
+        self.player_name = pname
         self.ui = ui
         tkinter.Frame.__init__(self, parent, **options)
         self.setup()
-    
-    def update(self):
-        # Update the column in light of current game state.
-        if self.ui.game.current_player == self.player:
-            self.config(relief='ridge')
-        else:
-            self.config(relief='flat')
-        self.total_score_label.config(text=self.scorecard.total)
-
-    def handle_click(self, event):
-        if self.ui.game.current_player != self.player:
-            # Player is clicking on someone else's tiles,
-            # so do nothing.
-            return
-        if self.ui.game.dice.rolled < 1:
-            # Player hasn't rolled yet so don't allow to place score.
-            return
-        cat = event.widget.category
-        score = self.scorecard.score(cat, self.ui.game.dice)
-        event.widget.config(text=score)
-        print('score:', score)
-        event.widget.config(relief='sunken')
-        self.ui.next_turn()
 
     def setup(self):
-        self.name_label = tkinter.Label(self, text=self.player.name)
+        self.name_label = tkinter.Label(self, text=self.player_name)
         self.name_label.grid(row=0, column=0)
         self.score_labels = {}
         for r, c in enumerate(CATEGORIES):
             new_label = tkinter.Label(self, text='0')
             new_label.grid(row=r+1, column=0)
-            new_label.player = self.player
             new_label.category = c
-            new_label.bind('<ButtonRelease-1>', self.handle_click)
+            new_label.bind('<ButtonRelease-1>', self.handle_score_click)
             self.score_labels[c] = new_label
         self.total_score_label = tkinter.Label(self, text='0')
         self.total_score_label.grid(row=len(CATEGORIES)+1, column=0)
-        self.update()
+        self.presenter.update_player_col(self)
+    
+    def score(self, cat, score):
+        self.score_labels[cat].config(text=score, relief=tkinter.SUNKEN)
+    
+    def handle_score_click(self, event):
+        self.presenter.place_player_score(self, event.widget.category)
 
 class DieLabel(tkinter.Label):
 
     # A special label that holds a die.
     # Ultimately this will hold an image.
 
-    def __init__(self, master, die, die_imgs, invert_die_imgs):
-        self.die = die
+    def __init__(self, master, presenter, die_imgs, invert_die_imgs):
+        self.presenter = presenter
         self.die_imgs = die_imgs
         self.invert_die_imgs = invert_die_imgs
         tkinter.Label.__init__(self, master)
-        self.update()
+        self.presenter.update_die_label(self, init=True)
 
-    def update(self, value=None, held=None):
-        if value is None:
-            value = self.die.value
-        if held is None:
-            held = self.die.is_held
+    def update_img(self, value, held):
         if held:
             img = self.invert_die_imgs[value-1]
         else:
             img = self.die_imgs[value-1]
         self.config(image=img)
-        
     
-    def toggle_hold(self, event):
-        if self.die.dice.rolled < 1:
-            # Player has to roll all 5 dice on first roll
-            return
-        self.die.is_held = not self.die.is_held
-        self.update()
+    def handle_click(self, event):
+        self.presenter.toggle_die_hold(self)
 
 
 class GameInterface(tkinter.Frame):
     
-    def __init__(self, players, master=None):
-        self.game = Game(players)
+    def __init__(self, presenter, master=None):
+        self.presenter = presenter
         tkinter.Frame.__init__(self, master)
         self.get_die_images()
-        self.create_widgets(self.game.players)
+        self.create_widgets()
         self.grid()
     
     def get_die_images(self):
@@ -202,15 +176,15 @@ class GameInterface(tkinter.Frame):
             self.invert_die_imgs.append(
                                 tkinter.PhotoImage(file=invert_fname))
     
-    def roll_dice(self):
-        # This function is bound to the "roll" button.
-        self.game.dice.roll()
-        for d in self.die_labels:
-            d.update()
-        if self.game.dice.rolled >= 3:
-            self.roll_button.config(state=tkinter.DISABLED)
+    def disable_roll(self):
+        # Prevent a user from clicking the "roll" button.
+        self.roll_button.config(state=tkinter.DISABLED)
+    
+    def enable_roll(self):
+        # Enable a user to click the "roll" button.
+        self.roll_button.config(state=tkinter.NORMAL)
 
-    def create_widgets(self, players):
+    def create_widgets(self):
         
         menu_frame = MenuBar(self)
         menu_frame.setup_menus()
@@ -232,41 +206,27 @@ class GameInterface(tkinter.Frame):
         
         players_frame = tkinter.Frame(score_frame)
         self.player_cols = {}
-        for i, p in enumerate(players):
-            pcol = PlayerColumn(players_frame, p, self, bd='2')
+        for i, p in enumerate(self.presenter.player_names):
+            pcol = PlayerColumn(players_frame, self.presenter, p,
+                        self, bd='2')
             pcol.grid(row=0, column=i+1)
             self.player_cols[p] = pcol
 
         dice_frame = tkinter.Frame(self)
         self.die_labels = []
         self.roll_button = tkinter.Button(dice_frame, text="Roll",
-                            command=self.roll_dice)
+                            command=self.presenter.roll_dice)
         self.roll_button.grid(column=0)
-        for i, d in enumerate(self.game.dice):
-            dlabel = DieLabel(dice_frame, d, self.die_imgs,
+        for i in range(5):
+            dlabel = DieLabel(dice_frame, self.presenter, self.die_imgs,
                                 self.invert_die_imgs)
-            dlabel.bind('<ButtonRelease-1>', dlabel.toggle_hold)
+            dlabel.bind('<ButtonRelease-1>', dlabel.handle_click)
             dlabel.grid(row=0, column=i+1)
             self.die_labels.append(dlabel)
         
         players_frame.grid(row=1, column=1)
         score_frame.grid(row=1, column=0)
         dice_frame.grid(row=2, column=0)
-
-    def next_turn(self):
-        # Called when a player places his or her score.  Calls
-        # game.next_player() and then updates the UI accordingly.
-        print('next turn')
-        self.game.next_player()
-        for pcol in self.player_cols.values():
-            pcol.update()
-        self.roll_button.config(state=tkinter.NORMAL)
     
     def quit(self):
         quit()
-            
-if __name__ == '__main__':
-    root = tkinter.Tk()
-    players = ['alan', 'john', 'fred']  # todo: get player names
-    ui = GameInterface(players)
-    ui.mainloop()

@@ -11,8 +11,13 @@ from game import Game, GameOver
 class Presenter:
     
     def __init__(self, players):
+        self.ui = None
         self.player_names = players
-        self.game = Game(players)
+        self.new_game()
+    
+    def new_game(self):
+        
+        self.game = Game(self.player_names)
         self.players = {p.name: p for p in self.game.players}
         # prepare Dice for iteration (for when we assign DieLabels)
         self.dice = iter(self.game.dice)
@@ -20,6 +25,8 @@ class Presenter:
         self.setup_ui()
     
     def setup_ui(self):
+        if self.ui is not None:
+            self.ui.destroy()
         self.ui = GameInterface(self)
         self.ui.run()
         
@@ -87,9 +94,16 @@ class Presenter:
     def game_over(self):
         winners, highest_score = self.game.winners
         if len(winners) == 1:
-            self.ui.notify_winner(winners[0].name, highest_score)
+            play_again = self.ui.notify_winner(winners[0].name, highest_score)
         else:
-            self.ui.notify_draw([p.name for p in winners], highest_score)
+            play_again = self.ui.notify_draw([p.name for p in winners], highest_score)
+        if play_again:
+            self.new_game()
+        else:
+            self.quit()
+    
+    def quit(self):
+        self.ui.quit()
 
 if __name__ == '__main__':
     

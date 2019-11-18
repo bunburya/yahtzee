@@ -128,13 +128,12 @@ class PlayerColumn(tkinter.Frame):
             self.score_labels[c] = new_label
         self.total_score_label = tkinter.Label(self, text='0')
         self.total_score_label.grid(row=len(CATEGORIES)+1, column=0)
-        self.presenter.update_player_col(self)
     
     def score(self, cat, score):
         self.score_labels[cat].config(text=score, relief=tkinter.SUNKEN)
     
     def handle_score_click(self, event):
-        self.presenter.place_player_score(self, event.widget.category)
+        self.presenter.place_player_score(self.player_name, event.widget.category)
 
 class DieLabel(tkinter.Label):
 
@@ -222,6 +221,7 @@ class GameInterface(tkinter.Frame):
                         self, bd='2')
             pcol.grid(row=0, column=i+1)
             self.player_cols[p] = pcol
+            self.update_player_col(p)
 
         dice_frame = tkinter.Frame(self)
         self.die_labels = []
@@ -238,6 +238,18 @@ class GameInterface(tkinter.Frame):
         players_frame.grid(row=1, column=1)
         score_frame.grid(row=1, column=0)
         dice_frame.grid(row=2, column=0)
+    
+    def update_player_col(self, p_name):
+        # Update the column in light of current game state.
+        pcol = self.player_cols[p_name]
+        if self.presenter.game.current_player.name == p_name:
+            pcol.config(relief='ridge')
+        else:
+            pcol.config(relief='flat')
+        pcol.total_score_label.config(text=self.presenter.players[p_name].scorecard.total)
+            
+    def add_player_score(self, p_name, cat, score):
+        self.player_cols[p_name].score(cat, score)
     
     def notify_winner(self, winner_name, score):
         play_again = askquestion(message='{} is the winner with a score of {}!\n\nPlay again?'.format(winner_name, score))

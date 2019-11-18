@@ -65,30 +65,21 @@ class Presenter:
         except GameOver:
             print('game over')
             self.game_over()
-        for pcol in self.ui.player_cols.values():
-            self.update_player_col(pcol)
+        for p_name in self.players:
+            self.ui.update_player_col(p_name)
         self.ui.enable_roll()
     
-    def update_player_col(self, pcol):
-        # Update the column in light of current game state.
-        player = self.players[pcol.player_name]
-        if self.game.current_player == player:
-            pcol.config(relief='ridge')
-        else:
-            pcol.config(relief='flat')
-        pcol.total_score_label.config(text=player.scorecard.total)
-    
-    def place_player_score(self, pcol, cat):
-        player = self.players[pcol.player_name]
-        if self.game.current_player != player:
+    def place_player_score(self, p_name, cat):
+
+        if self.game.current_player.name != p_name:
             # Player is clicking on someone else's tiles,
             # so do nothing.
             return
         if self.game.dice.rolled < 1:
             # Player hasn't rolled yet so don't allow to place score.
             return
-        score = player.scorecard.score(cat, self.game.dice)
-        pcol.score(cat, score)
+        score = self.game.current_player.scorecard.score(cat, self.game.dice)
+        self.ui.add_player_score(p_name, cat, score)
         self.next_turn()
     
     def game_over(self):
@@ -107,4 +98,4 @@ class Presenter:
 
 if __name__ == '__main__':
     
-    p = Presenter(['alan', 'mark'])
+    p = Presenter(['alan', 'mark', 'john'])

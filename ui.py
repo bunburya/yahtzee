@@ -5,6 +5,7 @@ from os.path import abspath, dirname, join
 from sys import argv
 import tkinter
 from tkinter import N, W, E, S
+from tkinter.messagebox import askquestion, showinfo
 
 root = tkinter.Tk()
 
@@ -85,9 +86,14 @@ class MenuBar(tkinter.Frame):
         filemenu = (
             ("Quit", "command", self.parent.quit),
             )
+        
+        testmenu = (
+            ("GameOver", "command", self.parent.presenter.game_over),
+            )
             
         menus = (
             ("File", filemenu),
+            ("Testing", testmenu)
             )
             
         for i, _menu in enumerate(menus):
@@ -133,7 +139,6 @@ class PlayerColumn(tkinter.Frame):
 class DieLabel(tkinter.Label):
 
     # A special label that holds a die.
-    # Ultimately this will hold an image.
 
     def __init__(self, master, presenter, die_imgs, invert_die_imgs):
         self.presenter = presenter
@@ -155,8 +160,14 @@ class DieLabel(tkinter.Label):
 
 class GameInterface(tkinter.Frame):
     
+    yn_vals = {
+            'yes':  True,
+            'no':   False
+            }
+    
     def __init__(self, presenter, master=None):
         self.presenter = presenter
+        self.root = root
         tkinter.Frame.__init__(self, master)
         self.get_die_images()
         self.create_widgets()
@@ -227,6 +238,17 @@ class GameInterface(tkinter.Frame):
         players_frame.grid(row=1, column=1)
         score_frame.grid(row=1, column=0)
         dice_frame.grid(row=2, column=0)
+    
+    def notify_winner(self, winner_name, score):
+        play_again = askquestion(message='{} is the winner with a score of {}!\n\nPlay again?'.format(winner_name, score))
+        return self.yn_vals[play_again]
+    
+    def notify_draw(self, names, score):
+        play_again = askquestion(message='It\'s a draw between: {}, each with a score of {}!\n\nPlay again?'.format(', '.join(names), score))
+        return self.yn_vals[play_again]
+    
+    def run(self):
+        self.root.mainloop()
     
     def quit(self):
         quit()

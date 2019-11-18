@@ -8,8 +8,14 @@ from itertools import groupby
 
 class AlreadyScoredError(Exception): pass
 
-class TurnOver(Exception):
+class GameEvent(Exception): pass
+
+class TurnOver(GameEvent):
     """Raised when a player's turn is over."""
+    pass
+
+class GameOver(GameEvent):
+    """Raised when the game is over."""
     pass
 
 class NoScoreType:
@@ -223,42 +229,34 @@ class Scorecard:
         return sum(self.scores.values()) + self.bonus
     
     @property
-    def full(self):
+    def is_full(self):
         return not (NoScore in self.scores.values())
     
 class Game:
     
-    def __init__(self, players):
-        self.players = [Player(p) for p in players]
+    def __init__(self, player_names):
+        self.players = [Player(p) for p in player_names]
         self.dice = Dice()
-        self.scores = {p: Scorecard() for p in players}
+        self.scores = {p.name: p.scorecard for p in self.players}
         self._player_i = 0 # so current player is first in list
+        self.is_over = False
     
     @property
     def current_player(self):
         return self.players[self._player_i]
 
+    @property
+    def winners(self):
+        highest_score = max([s.total for s in self.scores.values()])
+        return list(filter(lambda p: p.scorecard.total == highest_score, self.players)), highest_score
+    
     def next_player(self):
         if self._player_i < (len(self.players)-1):
             self._player_i += 1
         else:
             self._player_i = 0
+        if self.current_player.scorecard.is_full:
+            self.is_over = True
+            raise GameOver
         self.dice.rolled = 0
 
-    def gameloop(self):
-        try:
-            while True:
-                try:
-                    self.turnloop(p)
-                except TurnOver:
-                    self.next_player()
-        except GameOver:
-            self.game_over()
-    
-    def turnloop(self, player):
-        try:
-            while True:
-                player.move()
-        except TurnOver:
-            return
-        

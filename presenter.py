@@ -5,8 +5,8 @@
 # - dict mapping player names to Players
 # - dict mapping DieLabels to dice
 
-from ui import GameInterface, root
-from game import Game
+from ui import GameInterface
+from game import Game, GameOver
 
 class Presenter:
     
@@ -21,7 +21,7 @@ class Presenter:
     
     def setup_ui(self):
         self.ui = GameInterface(self)
-        root.mainloop()
+        self.ui.run()
         
     def roll_dice(self):
         self.game.dice.roll()
@@ -53,7 +53,11 @@ class Presenter:
         # Called when a player places his or her score.  Calls
         # game.next_player() and then updates the UI accordingly.
         print('next turn')
-        self.game.next_player()
+        try:
+            self.game.next_player()
+        except GameOver:
+            print('game over')
+            self.game_over()
         for pcol in self.ui.player_cols.values():
             self.update_player_col(pcol)
         self.ui.enable_roll()
@@ -79,6 +83,13 @@ class Presenter:
         score = player.scorecard.score(cat, self.game.dice)
         pcol.score(cat, score)
         self.next_turn()
+    
+    def game_over(self):
+        winners, highest_score = self.game.winners
+        if len(winners) == 1:
+            self.ui.notify_winner(winners[0].name, highest_score)
+        else:
+            self.ui.notify_draw([p.name for p in winners], highest_score)
 
 if __name__ == '__main__':
     
